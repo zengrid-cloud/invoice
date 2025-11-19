@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactional Email Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom animations for smoother UI feedback */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        /* Custom input focus ring color */
+        .input-focus:focus-within {
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 font-sans text-slate-800">
+
+    <!-- Main Card Container -->
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+        
+        <!-- Header Section -->
+        <div class="bg-slate-900 p-6 text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-800 mb-4 text-blue-400">
+                <i class="fa-solid fa-paper-plane text-xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-white">Trigger Email</h1>
+            <p class="text-slate-400 text-sm mt-1">Send transactional order confirmation</p>
+        </div>
+
+        <!-- Form Section -->
+        <div class="p-8">
+            <form id="emailForm" class="space-y-6">
+                
+                <!-- Customer Email Input -->
+                <div class="space-y-2">
+                    <label for="customer_email" class="block text-sm font-medium text-slate-700">Customer Email</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-regular fa-envelope"></i>
+                        </div>
+                        <input type="email" id="customer_email" name="customer_email" required
+                            class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none"
+                            placeholder="customer@example.com">
+                    </div>
+                </div>
+
+                <!-- Order ID Input -->
+                <div class="space-y-2">
+                    <label for="order_id" class="block text-sm font-medium text-slate-700">Order ID</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-hashtag"></i>
+                        </div>
+                        <input type="text" id="order_id" name="order_id" required
+                            class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none"
+                            placeholder="ORD-2024-001">
+                    </div>
+                </div>
+
+                <!-- Order Amount Input -->
+                <div class="space-y-2">
+                    <label for="order_amount" class="block text-sm font-medium text-slate-700">Order Amount</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-dollar-sign"></i>
+                        </div>
+                        <input type="number" id="order_amount" name="order_amount" required step="0.01" min="0"
+                            class="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none"
+                            placeholder="0.00">
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="submitBtn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                    <span>Send Confirmation</span>
+                    <i class="fa-solid fa-arrow-right text-sm"></i>
+                </button>
+            </form>
+
+            <!-- Status Messages Container -->
+            <div id="statusContainer" class="mt-6 hidden">
+                <!-- Success Message (Hidden by default) -->
+                <div id="successMessage" class="hidden p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3 animate-fade-in">
+                    <i class="fa-solid fa-circle-check text-green-500 mt-0.5"></i>
+                    <div>
+                        <h3 class="text-sm font-semibold text-green-800">Email Sent Successfully</h3>
+                        <p class="text-xs text-green-600 mt-1">The webhook received the order details.</p>
+                    </div>
+                </div>
+
+                <!-- Error Message (Hidden by default) -->
+                <div id="errorMessage" class="hidden p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 animate-fade-in">
+                    <i class="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                    <div>
+                        <h3 class="text-sm font-semibold text-red-800">Submission Failed</h3>
+                        <p id="errorText" class="text-xs text-red-600 mt-1">Something went wrong. Please try again.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="bg-slate-50 px-8 py-4 border-t border-slate-100 text-center">
+            <p class="text-xs text-slate-400">Connected to n8n webhook</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('emailForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = submitBtn.querySelector('span');
+            const btnIcon = submitBtn.querySelector('i');
+            const statusContainer = document.getElementById('statusContainer');
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+
+            // Function to reset UI state
+            const resetStatus = () => {
+                statusContainer.classList.add('hidden');
+                successMessage.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+            };
+
+            // Function to set Loading state
+            const setLoading = (isLoading) => {
+                if (isLoading) {
+                    submitBtn.disabled = true;
+                    btnText.textContent = 'Sending...';
+                    btnIcon.className = 'fa-solid fa-spinner fa-spin';
+                } else {
+                    submitBtn.disabled = false;
+                    btnText.textContent = 'Send Confirmation';
+                    btnIcon.className = 'fa-solid fa-arrow-right text-sm';
+                }
+            };
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // 1. Reset previous messages and set loading
+                resetStatus();
+                setLoading(true);
+
+                // 2. Collect Data
+                const formData = {
+                    customer_email: document.getElementById('customer_email').value,
+                    order_id: document.getElementById('order_id').value,
+                    order_amount: document.getElementById('order_amount').value
+                };
+
+                const webhookUrl = 'https://app.zengrid.cloud/webhook/thank-you-email';
+
+                try {
+                    // 3. Send POST Request
+                    const response = await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    // 4. Handle Response
+                    statusContainer.classList.remove('hidden');
+
+                    if (response.ok) {
+                        // Success State
+                        successMessage.classList.remove('hidden');
+                        form.reset(); // Optional: clear form on success
+                    } else {
+                        // HTTP Error State
+                        throw new Error(`Server responded with ${response.status}`);
+                    }
+
+                } catch (error) {
+                    // Network or Logic Error State
+                    statusContainer.classList.remove('hidden');
+                    errorMessage.classList.remove('hidden');
+                    errorText.textContent = `Error: ${error.message}. Check your connection or webhook URL.`;
+                    console.error('Submission error:', error);
+                } finally {
+                    // 5. Reset Button State
+                    setLoading(false);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
